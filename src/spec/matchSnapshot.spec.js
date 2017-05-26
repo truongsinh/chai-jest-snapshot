@@ -32,10 +32,16 @@ const NONEXISTANT_SNAPSHOT_NAME = "ExampleComponent throws rubber chickens";
 
 describe("matchSnapshot", function() {
   let object;
-  let snapshotFileName;
+  let snapshotFilename;
   let snapshotName;
   let update;
   let utils;
+
+  const parseArgs = () => ({
+    snapshotFilename,
+    snapshotName,
+    update,
+  });
 
   // Creates object with shape: { run, assert }
   // `run` will call matchSnapshot with its value of `this` stubbed appropriately
@@ -46,7 +52,7 @@ describe("matchSnapshot", function() {
     let assert = sinon.spy();
     let internal = {};
     let timesRan = 0;
-    const matchSnapshot = buildMatchSnapshot(utils);
+    const matchSnapshot = buildMatchSnapshot(utils, parseArgs);
 
     return {
       run() {
@@ -57,12 +63,12 @@ describe("matchSnapshot", function() {
             internal[name] = internal[name] || [];
             internal[name][timesRan] = value;
           }
-        }, snapshotFileName, snapshotName, update);
+        });
         timesRan++;
       },
       assert,
-      internal
-    }
+      internal,
+    };
   };
 
   function expectPass() {
@@ -93,11 +99,10 @@ describe("matchSnapshot", function() {
     existingSnapshotFile.save();
 
     object = undefined;
-    snapshotFileName = undefined;
+    snapshotFilename = undefined;
     snapshotName = undefined;
     update = false;
     utils = { flag: () => undefined };
-    delete process.env.CHAI_JEST_SNAPSHOT_UPDATE_ALL;
   });
 
   afterEach(function() {
@@ -116,119 +121,9 @@ describe("matchSnapshot", function() {
     expect(operation.internal.snapshotFile[0] === operation.internal.snapshotFile[1]).to.be.true;
   };
 
-  describe("#registerSnapshotFileName", function() {
-    beforeEach(function(){
-      snapshotName = "snapshotFileName";
-    });
-    afterEach(function(){
-      buildMatchSnapshot.registerSnapshotFileName(void 0);
-    });
-    context("only #registerSnapshotFileName without #matchSnapshot param", function() {
-      it("uses from #registerSnapshotFileName", function() {
-        const testedFileName = workspacePath("nameFromConfig");
-        const operation = createMatchOperation();
-        buildMatchSnapshot.registerSnapshotFileName(testedFileName);
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._filename).to.equal(testedFileName);
-      });
-    });
-    context("only #matchSnapshot param without #registerSnapshotFileName", function() {
-      it("uses from #matchSnapshot param", function() {
-        snapshotFileName = workspacePath("nameFromParam");
-        const operation = createMatchOperation();
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._filename).to.equal(snapshotFileName);
-      });
-    });
-    context("both #matchSnapshot param and #registerSnapshotFileName", function() {
-      it("uses from #matchSnapshot param", function() {
-        const testedFileName = workspacePath("nameFromConfig")
-        snapshotFileName = workspacePath("nameFromParam");
-        const operation = createMatchOperation();
-        buildMatchSnapshot.registerSnapshotFileName(testedFileName);
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._filename).to.equal(snapshotFileName);
-      });
-    });
-    context("neither #matchSnapshot param nor #registerSnapshotFileName", function() {
-      it("throws error", function() {
-        const operation = createMatchOperation();
-        expect(operation.run).to.throw(Error, "Snapshot file name must be defined by #registerSnapshotFileName or as a param to #matchJson.");
-      });
-    });
-  });
-
-  describe("#registerSnapshotNameTemplate", function() {
-    beforeEach(function(){
-      snapshotFileName = workspacePath("snapshotFileName")
-    });
-    afterEach(function(){
-      buildMatchSnapshot.registerSnapshotNameTemplate(void 0);
-    });
-    context("only #registerSnapshotNameTemplate without #matchSnapshot param", function() {
-      it("uses from #registerSnapshotNameTemplate and auto-increases", function() {
-        const testedSnapshotNameTemplate = "SnapshotNameTemplate";
-        const operation = createMatchOperation();
-        buildMatchSnapshot.registerSnapshotNameTemplate(testedSnapshotNameTemplate)
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("SnapshotNameTemplate 1");
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys(["SnapshotNameTemplate 1", "SnapshotNameTemplate 2"]);
-      });
-    });
-    context("only #matchSnapshot param without #registerSnapshotNameTemplate", function() {
-      it("uses from #matchSnapshot param and reuses the same name", function() {
-        snapshotName = "SnarpShotName";
-        const operation = createMatchOperation();
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("SnarpShotName");
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("SnarpShotName");
-      });
-    });
-    context("both #matchSnapshot param and #registerSnapshotNameTemplate", function() {
-      it("uses from #matchSnapshot param and reuses the same name", function() {
-        snapshotName = "SnarpShotName";
-        const operation = createMatchOperation();
-        buildMatchSnapshot.registerSnapshotNameTemplate("SnapshotNameTemplate")
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("SnarpShotName");
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("SnarpShotName");
-      });
-    });
-    context("neither #matchSnapshot param nor #registerSnapshotFileName", function() {
-      it("throws error", function() {
-        const operation = createMatchOperation();
-        expect(operation.run).to.throw(Error, "Snapshot name must be available as a param to #matchJson, or be defined with auto-increase counter by #registerSnapshotNameTemplate.");
-      });
-    });
-  });
-
-  describe("#registerMochaContext", function() {
-    beforeEach(function(){
-      buildMatchSnapshot.registerMochaContext(this);
-    });
-    afterEach(function(){
-      buildMatchSnapshot.registerSnapshotFileName(void 0);
-      buildMatchSnapshot.registerSnapshotNameTemplate(void 0);
-    });
-    context("even deep inside other context/desribe", function() {
-      it("uses info from filename and testname from mocha context", function() {
-        const testedFileName = (__filename + ".snap")
-          // this file is in "src", but mocha run the built file, in "dist"
-          .replace("src", "dist");
-        const operation = createMatchOperation();
-        operation.run();
-        expect(operation.internal.snapshotFile[0]._filename).to.equal(testedFileName);
-        expect(operation.internal.snapshotFile[0]._content).to.have.keys("matchSnapshot #registerMochaContext even deep inside other context/desribe uses info from filename and testname from mocha context 1");
-      });
-    });
-  });
-
   describe("when the snapshot file exists", function() {
     beforeEach(function() {
-      snapshotFileName = EXISTING_SNAPSHOT_PATH;
+      snapshotFilename = EXISTING_SNAPSHOT_PATH;
     });
 
     it("uses the same snapshotFile instance across multiple runs (#2)", expectUsesSameInstance);
@@ -263,7 +158,7 @@ describe("matchSnapshot", function() {
 
         function doesNotOverwriteSnapshot() {
           createMatchOperation().run();
-          let snapshotFileContent = fs.readFileSync(snapshotFileName, 'utf8');
+          let snapshotFileContent = fs.readFileSync(snapshotFilename, 'utf8');
           let expectedContent = `exports[\`${EXISTING_SNAPSHOT_NAME}\`] = \`\n${prettyTree}\n\`;\n`;
           expect(snapshotFileContent).to.equal(expectedContent);
         }
@@ -272,19 +167,18 @@ describe("matchSnapshot", function() {
 
         it("the assertion does not pass", expectFailure('"something other than tree"'));
 
-        const expectOverwritesSnapshot = () => {
-          createMatchOperation().run();
-          let snapshotFileContent = fs.readFileSync(snapshotFileName, 'utf8');
-          let expectedContent = `exports[\`${EXISTING_SNAPSHOT_NAME}\`] = \`"something other than tree"\`;\n`;
-          expect(snapshotFileContent).to.equal(expectedContent);
-        }
-
         describe("and the 'update' flag set to true", function() {
           beforeEach(function() {
             update = true;
           });
 
-          it("overwrites the snapshot with the new content", expectOverwritesSnapshot);
+          it("overwrites the snapshot with the new content", function() {
+            createMatchOperation().run();
+            let snapshotFileContent = fs.readFileSync(snapshotFilename, 'utf8');
+            let expectedContent = `exports[\`${EXISTING_SNAPSHOT_NAME}\`] = \`"something other than tree"\`;\n`;
+            expect(snapshotFileContent).to.equal(expectedContent);
+          });
+
           it("the assertion passes", expectPass)
         });
 
@@ -292,20 +186,11 @@ describe("matchSnapshot", function() {
           beforeEach(function() {
             update = undefined;
           });
-
-          describe("but the environment variable CHAI_JEST_SNAPSHOT_UPDATE_ALL set", function() {
-            beforeEach(function() {
-              process.env.CHAI_JEST_SNAPSHOT_UPDATE_ALL = "true";
-            });
-
-            it("overwrites the snapshot with the new content", expectOverwritesSnapshot);
-            it("the assertion passes", expectPass)
-          });
         });
 
         describe("and a relative path is used (#1)", function() {
           beforeEach(function() {
-            snapshotFileName = EXISTING_SNAPSHOT_RELATIVE_PATH;
+            snapshotFilename = EXISTING_SNAPSHOT_RELATIVE_PATH;
           });
 
           it("does not overwrite the snapshot with the new content", doesNotOverwriteSnapshot);
@@ -323,7 +208,7 @@ describe("matchSnapshot", function() {
 
       it("adds the snapshot to the file", function() {
         createMatchOperation().run();
-        let snapshotFileContent = fs.readFileSync(snapshotFileName, 'utf8');
+        let snapshotFileContent = fs.readFileSync(snapshotFilename, 'utf8');
         let expectedContent = `exports[\`${EXISTING_SNAPSHOT_NAME}\`] = \`\n` +
           prettyTree +
           `\n\`;\n\n` +
@@ -339,7 +224,7 @@ describe("matchSnapshot", function() {
 
   describe("when the snapshot file does not exist", function() {
     beforeEach(function() {
-      snapshotFileName = NONEXISTANT_SNAPSHOT_PATH;
+      snapshotFilename = NONEXISTANT_SNAPSHOT_PATH;
       snapshotName = NONEXISTANT_SNAPSHOT_NAME;
       object = tree;
     });
@@ -348,7 +233,7 @@ describe("matchSnapshot", function() {
 
     it("a new snapshot file is created with the snapshot content", function() {
       createMatchOperation().run();
-      let snapshotFileContent = fs.readFileSync(snapshotFileName, 'utf8');
+      let snapshotFileContent = fs.readFileSync(snapshotFilename, 'utf8');
       let expectedContent = `exports[\`${NONEXISTANT_SNAPSHOT_NAME}\`] = \`\n` +
         prettyTree +
         `\n\`;\n`;
@@ -357,4 +242,20 @@ describe("matchSnapshot", function() {
 
     it("the assertion passes", expectPass);
   });
+  /**
+    it("uses from #setTestname and auto-increases and reset auto-increase when setTestname is call again", function() {
+      const testedSnapshotNameTemplate = "SnapshotNameTemplate";
+      const operation = createMatchOperation();
+      buildMatchSnapshot.setTestname(testedSnapshotNameTemplate);
+      operation.run();
+      expect(operation.internal.snapshotFile[0]._content).to.have.keys(["SnapshotNameTemplate 1"]);
+      operation.run();
+      expect(operation.internal.snapshotFile[0]._content).to.have.length(2);
+      expect(operation.internal.snapshotFile[0]._content).to.have.keys(["SnapshotNameTemplate 2"]);
+      buildMatchSnapshot.setTestname(testedSnapshotNameTemplate);
+      operation.run();
+      expect(operation.internal.snapshotFile[0]._content).to.have.keys(["SnapshotNameTemplate 1"]);
+      expect(operation.internal.snapshotFile[0]._content).to.have.length(1);
+    });
+  */
 });

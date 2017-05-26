@@ -8,37 +8,35 @@ var _path = require("path");
 
 var _path2 = _interopRequireDefault(_path);
 
-var _SnapshotFile = require("./SnapshotFile");
-
-var _SnapshotFile2 = _interopRequireDefault(_SnapshotFile);
-
 var _lodash = require("lodash.values");
 
 var _lodash2 = _interopRequireDefault(_lodash);
 
+var _SnapshotFile = require("./SnapshotFile");
+
+var _SnapshotFile2 = _interopRequireDefault(_SnapshotFile);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var snapshotNameCounter = {};
-
-var buildMatchSnapshot = function buildMatchSnapshot(utils, internalConfig) {
+var buildMatchSnapshot = function buildMatchSnapshot(utils, parseArgs) {
   var snapshotFiles = {};
 
-  return function matchSnapshot(snapshotFileName, snapshotName, update) {
-    snapshotFileName = snapshotFileName || internalConfig.snapshotFileName;
-    snapshotName = snapshotName || internalConfig.snapshotName;
-    if (!snapshotName) {
-      var snapshotNameTemplate = internalConfig.snapshotNameTemplate;
-      var nextCounter = (snapshotNameCounter[snapshotNameTemplate] || 0) + 1;
-      snapshotNameCounter[snapshotNameTemplate] = nextCounter;
-      snapshotName = snapshotNameTemplate + " " + nextCounter;
+  function matchSnapshot() {
+    for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
     }
+
+    var _parseArgs = parseArgs(args),
+        snapshotFilename = _parseArgs.snapshotFilename,
+        snapshotName = _parseArgs.snapshotName,
+        update = _parseArgs.update;
 
     if (utils.flag(this, 'negate')) {
       throw new Error("`matchSnapshot` cannot be used with `.not`.");
     }
 
     var obj = this._obj;
-    var absolutePathToSnapshot = _path2.default.resolve(snapshotFileName);
+    var absolutePathToSnapshot = _path2.default.resolve(snapshotFilename);
     var snapshotFile = void 0;
     if (snapshotFiles[absolutePathToSnapshot]) {
       snapshotFile = snapshotFiles[absolutePathToSnapshot];
@@ -49,8 +47,6 @@ var buildMatchSnapshot = function buildMatchSnapshot(utils, internalConfig) {
 
     if (this._publishInternalVariableForTesting) {
       this._publishInternalVariableForTesting("snapshotFile", snapshotFile);
-      this._publishInternalVariableForTesting("snapshotName", snapshotName);
-      this._publishInternalVariableForTesting("snapshotFileName", snapshotFileName);
     }
 
     var matches = void 0;
@@ -65,9 +61,7 @@ var buildMatchSnapshot = function buildMatchSnapshot(utils, internalConfig) {
       pass = true;
     }
 
-    var shouldUpdate = update || typeof process !== "undefined" && process.env && process.env.CHAI_JEST_SNAPSHOT_UPDATE_ALL;
-
-    if (!pass && shouldUpdate) {
+    if (!pass && update) {
       snapshotFile.add(snapshotName, obj);
       snapshotFile.save();
       pass = true;
@@ -75,6 +69,8 @@ var buildMatchSnapshot = function buildMatchSnapshot(utils, internalConfig) {
 
     this.assert(pass, "expected value to match snapshot " + snapshotName, "expected value to not match snapshot " + snapshotName, matches && matches.expected && matches.expected.trim(), matches && matches.actual && matches.actual.trim(), matches && true);
   };
+
+  return matchSnapshot;
 };
 
 exports.default = buildMatchSnapshot;
